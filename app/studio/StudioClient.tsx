@@ -3,12 +3,16 @@
 import { FilePlus2, GitPullRequest, ImagePlus } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import type { ContentKind } from "@/lib/content";
+import type { ContentKind, PersonalInfo } from "@/lib/content";
 
 type MediaFile = {
   fileName: string;
   mimeType: string;
   base64: string;
+};
+
+type StudioClientProps = {
+  personalInfo: PersonalInfo;
 };
 
 const kinds: ContentKind[] = [
@@ -38,8 +42,10 @@ function fileToBase64(file: File) {
   });
 }
 
-export function StudioClient() {
+export function StudioClient({ personalInfo }: StudioClientProps) {
   const [studioToken, setStudioToken] = useState("");
+  const [profile, setProfile] = useState(personalInfo);
+  const [profileImageFile, setProfileImageFile] = useState<MediaFile | null>(null);
   const [kind, setKind] = useState<ContentKind>("project");
   const [title, setTitle] = useState("");
   const [organization, setOrganization] = useState("");
@@ -54,6 +60,9 @@ export function StudioClient() {
   const [body, setBody] = useState("");
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
   const [status, setStatus] = useState("");
+  const profileImagePreview = profileImageFile
+    ? `data:${profileImageFile.mimeType};base64,${profileImageFile.base64}`
+    : profile.profileImage;
 
   const parsedLinks = useMemo(
     () =>
@@ -97,6 +106,58 @@ export function StudioClient() {
     }
 
     setMediaFiles((current) => [...current, ...nextFiles]);
+  }
+
+  async function onProfileImageSelected(files: FileList | null) {
+    const file = files?.[0];
+
+    if (!file) return;
+
+    if (file.size > 3 * 1024 * 1024) {
+      setStatus(`${file.name} is too large. Max size is 3 MB.`);
+      return;
+    }
+
+    if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type)) {
+      setStatus(`${file.name} has an unsupported image type.`);
+      return;
+    }
+
+    setProfileImageFile({
+      fileName: file.name,
+      mimeType: file.type,
+      base64: await fileToBase64(file)
+    });
+  }
+
+  function updateProfile(field: keyof PersonalInfo, value: string) {
+    setProfile((current) => ({ ...current, [field]: value }));
+  }
+
+  async function submitProfile() {
+    setStatus("Creating profile pull request...");
+
+    const response = await fetch("/api/studio/submit", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-studio-token": studioToken
+      },
+      body: JSON.stringify({
+        action: "profile",
+        profile,
+        mediaFiles: profileImageFile ? [profileImageFile] : []
+      })
+    });
+
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      setStatus(result.error ?? "Unable to create profile pull request.");
+      return;
+    }
+
+    setStatus(`Profile pull request created: ${result.pullRequestUrl}`);
   }
 
   async function submit() {
@@ -152,6 +213,121 @@ export function StudioClient() {
           </div>
           <GitPullRequest className="h-10 w-10 text-accent" aria-hidden="true" />
         </div>
+
+        <section className="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow-card">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-extrabold text-ink">Profile Editor</h2>
+              <p className="mt-1 text-sm leading-6 text-muted">
+                Update profile text and upload a new profile image. The server writes
+                `content/profile.yaml` and opens a GitHub PR.
+              </p>
+            </div>
+            <div
+              className="h-24 w-20 rounded-md border border-slate-200 bg-cover bg-center"
+              style={{ backgroundImage: `url("${profileImagePreview}")` }}
+              aria-label="Profile image preview"
+            />
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="block md:col-span-2">
+              <span className="text-sm font-bold text-ink">Studio password</span>
+              <input
+                type="password"
+                value={studioToken}
+                onChange={(event) => setStudioToken(event.target.value)}
+                className="mt-2 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+              />
+            </label>
+            {[
+              ["displayName", "Display name"],
+              ["title", "Title"],
+              ["email", "Email"],
+              ["phone", "Phone"],
+              ["github", "GitHub username"],
+              ["linkedIn", "LinkedIn"],
+              ["huggingFace", "Hugging Face"],
+              ["discord", "Discord"],
+              ["instagram", "Instagram"],
+              ["location", "Location"]
+            ].map(([field, label]) => (
+              <label key={field} className="block">
+                <span className="text-sm font-bold text-ink">{label}</span>
+                <input
+                  value={String(profile[field as keyof PersonalInfo] ?? "")}
+                  onChange={(event) =>
+                    updateProfile(field as keyof PersonalInfo, event.target.value)
+                  }
+                  className="mt-2 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+                />
+              </label>
+            ))}
+            <label className="block md:col-span-2">
+              <span className="text-sm font-bold text-ink">School</span>
+              <input
+                value={profile.school}
+                onChange={(event) => updateProfile("school", event.target.value)}
+                className="mt-2 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="block md:col-span-2">
+              <span className="text-sm font-bold text-ink">Profile image path</span>
+              <input
+                value={profile.profileImage}
+                onChange={(event) => updateProfile("profileImage", event.target.value)}
+                className="mt-2 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+              />
+              <span className="mt-1 block text-xs font-semibold text-slate-500">
+                Uploading a new image will replace this with `/media/profile/...` in the PR.
+              </span>
+            </label>
+            <label className="block md:col-span-2">
+              <span className="text-sm font-bold text-ink">Tagline</span>
+              <textarea
+                value={profile.tagline}
+                onChange={(event) => updateProfile("tagline", event.target.value)}
+                className="mt-2 h-20 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="block md:col-span-2">
+              <span className="text-sm font-bold text-ink">Hero</span>
+              <textarea
+                value={profile.hero}
+                onChange={(event) => updateProfile("hero", event.target.value)}
+                className="mt-2 h-28 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="block md:col-span-2">
+              <span className="text-sm font-bold text-ink">About / CV introduction</span>
+              <textarea
+                value={profile.about}
+                onChange={(event) => updateProfile("about", event.target.value)}
+                className="mt-2 h-32 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="flex cursor-pointer items-center gap-3 rounded-md border border-dashed border-slate-300 p-4 text-sm font-bold text-ink md:col-span-2">
+              <ImagePlus className="h-5 w-5 text-accent" />
+              Upload new profile image
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                onChange={(event) => onProfileImageSelected(event.target.files)}
+                className="sr-only"
+              />
+            </label>
+          </div>
+
+          <button
+            type="button"
+            onClick={submitProfile}
+            className="mt-5 inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-bold text-white"
+          >
+            <FilePlus2 className="h-4 w-4" />
+            Create Profile Pull Request
+          </button>
+          {status ? <p className="mt-3 text-sm font-semibold text-muted">{status}</p> : null}
+        </section>
 
         <div className="grid gap-6 lg:grid-cols-[1fr_0.85fr]">
           <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-card">

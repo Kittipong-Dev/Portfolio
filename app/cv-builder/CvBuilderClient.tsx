@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowUp, Download, Save } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { CareerItem, PersonalInfo, SkillGroup } from "@/lib/content";
@@ -24,6 +25,11 @@ function countBullets(selectedItems: CareerItem[], draftBullets: DraftBullets) {
   }, 0);
 }
 
+function formatDateRange(item: CareerItem) {
+  if (item.startDate && item.endDate) return `${item.startDate} - ${item.endDate}`;
+  return item.endDate ?? item.startDate ?? "";
+}
+
 export function CvBuilderClient({
   personalInfo,
   items,
@@ -36,7 +42,7 @@ export function CvBuilderClient({
     skillGroups.flatMap((group) => group.items).slice(0, 12)
   );
   const [draftBullets, setDraftBullets] = useState<DraftBullets>({});
-  const [template, setTemplate] = useState("focused");
+  const [template, setTemplate] = useState("pdf-reference");
   const [onePageMode, setOnePageMode] = useState(true);
   const [targetKeywords, setTargetKeywords] = useState("AI, backend, API, data, cloud");
 
@@ -46,6 +52,17 @@ export function CvBuilderClient({
         .map((key) => items.find((item) => itemKey(item) === key))
         .filter((item): item is CareerItem => Boolean(item)),
     [items, selectedKeys]
+  );
+  const formalEducationItems = useMemo(
+    () =>
+      items.filter(
+        (item) =>
+          item.kind === "education" &&
+          [item.category, item.type]
+            .filter(Boolean)
+            .some((value) => ["formal education", "school", "university"].includes(String(value).toLowerCase()))
+      ),
+    [items]
   );
 
   const bulletTotal = countBullets(selectedItems, draftBullets);
@@ -142,7 +159,7 @@ export function CvBuilderClient({
 
   return (
     <div className="grid min-h-screen gap-0 bg-slate-100 lg:grid-cols-[390px_1fr]">
-      <aside className="border-r border-slate-200 bg-white p-5">
+      <aside className="border-r border-slate-200 bg-white p-5 print:hidden">
         <div className="mb-5">
           <Link href="/" className="text-sm font-bold text-accent">
             Back to portfolio
@@ -162,6 +179,7 @@ export function CvBuilderClient({
               onChange={(event) => setTemplate(event.target.value)}
               className="mt-2 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
             >
+              <option value="pdf-reference">PDF reference template</option>
               <option value="focused">Focused technical</option>
               <option value="compact">Compact one-page</option>
               <option value="portfolio">Portfolio narrative</option>
@@ -244,7 +262,7 @@ export function CvBuilderClient({
         </div>
       </aside>
 
-      <main className="p-5 lg:p-8">
+      <main className="p-5 print:bg-white print:p-0 lg:p-8">
         {warnings.length > 0 ? (
           <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
             {warnings.map((warning) => (
@@ -253,7 +271,7 @@ export function CvBuilderClient({
           </div>
         ) : null}
 
-        <div className="mb-4 flex flex-wrap gap-3">
+        <div className="mb-4 flex flex-wrap gap-3 print:hidden">
           <button
             type="button"
             onClick={() => window.print()}
@@ -273,36 +291,52 @@ export function CvBuilderClient({
         </div>
 
         <article
-          className={`mx-auto max-w-4xl bg-white p-8 shadow-card print:shadow-none ${
-            template === "compact" ? "text-[13px]" : "text-sm"
+          className={`cv-print-page mx-auto bg-white shadow-card print:shadow-none ${
+            template === "compact" ? "text-[12px]" : "text-[13px]"
           }`}
         >
-          <header className="border-b border-slate-200 pb-5">
-            <h2 className="text-3xl font-extrabold text-ink">{personalInfo.displayName}</h2>
-            <p className="mt-2 font-semibold text-accent">{personalInfo.title}</p>
-            <p className="mt-2 text-muted">
-              {personalInfo.email} | github.com/{personalInfo.github} | {personalInfo.location}
-            </p>
+          <header className="grid grid-cols-[110px_1fr] gap-7">
+            <Image
+              src={personalInfo.profileImage}
+              alt={`${personalInfo.displayName} profile`}
+              width={92}
+              height={118}
+              className="h-[118px] w-[92px] object-cover"
+            />
+            <div>
+              <h2 className="font-serif text-[34px] font-extrabold leading-tight text-black">
+                {personalInfo.displayName}
+              </h2>
+              <div className="mt-5 grid gap-x-10 gap-y-1 font-serif text-[17px] leading-tight text-black sm:grid-cols-2">
+                <p>
+                  <strong>Phone:</strong> <span className="ml-8">{personalInfo.phone}</span>
+                </p>
+                <p>
+                  <strong>Email:</strong> <span className="ml-8">{personalInfo.email}</span>
+                </p>
+                <p>
+                  <strong>Github:</strong>{" "}
+                  <span className="ml-7">github.com/{personalInfo.github}</span>
+                </p>
+                <p>
+                  <strong>Hugging Face:</strong>{" "}
+                  <span className="ml-3">{personalInfo.huggingFace}</span>
+                </p>
+                <p className="sm:col-span-2">
+                  <strong>LinkedIn:</strong>{" "}
+                  <span className="ml-5">{personalInfo.linkedIn}</span>
+                </p>
+              </div>
+            </div>
           </header>
 
-          <section className="mt-5">
-            <h3 className="text-sm font-extrabold uppercase tracking-[0.12em] text-ink">
-              Summary
-            </h3>
-            <p className="mt-2 leading-6 text-muted">{personalInfo.about}</p>
+          <section className="mt-4">
+            <h3 className="cv-section-title">Introduction</h3>
+            <p className="cv-body mt-2">{personalInfo.about}</p>
           </section>
 
-          <section className="mt-5">
-            <h3 className="text-sm font-extrabold uppercase tracking-[0.12em] text-ink">
-              Skills
-            </h3>
-            <p className="mt-2 leading-6 text-muted">{selectedSkills.join(", ")}</p>
-          </section>
-
-          <section className="mt-5 space-y-5">
-            <h3 className="text-sm font-extrabold uppercase tracking-[0.12em] text-ink">
-              Selected Experience
-            </h3>
+          <section className="mt-3 space-y-3">
+            <h3 className="cv-section-title">Experience / Projects</h3>
             {selectedItems.map((item) => {
               const key = itemKey(item);
               const bullets = draftBullets[key] ?? item.bullets;
@@ -310,31 +344,40 @@ export function CvBuilderClient({
                 <div key={key} className="break-inside-avoid">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <h4 className="font-extrabold text-ink">{item.title}</h4>
-                      <p className="font-semibold text-accent">
-                        {[item.role, item.organization].filter(Boolean).join(" | ")}
-                      </p>
+                      <h4 className="font-serif text-[17px] font-extrabold leading-tight text-black">
+                        {item.title}
+                      </h4>
+                      {item.role ? (
+                        <p className="font-serif text-[15px] font-bold leading-tight text-black">
+                          {item.role}
+                        </p>
+                      ) : null}
                     </div>
-                    <div className="flex gap-1 print:hidden">
-                      <button
-                        type="button"
-                        onClick={() => moveKey(key, -1)}
-                        className="rounded border border-slate-200 p-1"
-                        aria-label={`Move ${item.title} up`}
-                      >
-                        <ArrowUp className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveKey(key, 1)}
-                        className="rounded border border-slate-200 p-1"
-                        aria-label={`Move ${item.title} down`}
-                      >
-                        <ArrowDown className="h-4 w-4" />
-                      </button>
+                    <div className="flex items-center gap-2">
+                      <p className="font-serif text-[16px] font-extrabold text-black">
+                        {formatDateRange(item)}
+                      </p>
+                      <div className="flex gap-1 print:hidden">
+                        <button
+                          type="button"
+                          onClick={() => moveKey(key, -1)}
+                          className="rounded border border-slate-200 p-1"
+                          aria-label={`Move ${item.title} up`}
+                        >
+                          <ArrowUp className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveKey(key, 1)}
+                          className="rounded border border-slate-200 p-1"
+                          aria-label={`Move ${item.title} down`}
+                        >
+                          <ArrowDown className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <ul className="mt-2 list-disc space-y-1 pl-5 leading-6 text-muted">
+                  <ul className="cv-body mt-2 list-disc space-y-1 pl-6">
                     {bullets.map((bullet, index) => (
                       <li key={`${key}-${index}`}>
                         <input
@@ -348,6 +391,32 @@ export function CvBuilderClient({
                 </div>
               );
             })}
+          </section>
+
+          <section className="mt-3">
+            <h3 className="cv-section-title">Education</h3>
+            <div className="mt-2 space-y-2">
+              {formalEducationItems.map((item) => (
+                <div key={item.slug} className="flex items-start justify-between gap-4">
+                  <div>
+                    <h4 className="font-serif text-[17px] font-extrabold leading-tight text-black">
+                      {item.title}
+                    </h4>
+                    <p className="cv-body">{item.role ?? item.summary}</p>
+                  </div>
+                  <p className="font-serif text-[16px] font-extrabold text-black">
+                    {formatDateRange(item) || "Present"}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="mt-3">
+            <h3 className="cv-section-title">Skills and Interests</h3>
+            <p className="cv-body mt-2">
+              <strong>Selected Skills:</strong> {selectedSkills.join(", ")}
+            </p>
           </section>
         </article>
       </main>

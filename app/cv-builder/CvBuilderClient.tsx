@@ -18,6 +18,25 @@ function itemKey(item: CareerItem) {
   return `${item.kind}:${item.slug}`;
 }
 
+function isFormalEducation(item: CareerItem) {
+  return (
+    item.kind === "education" &&
+    [item.category, item.type]
+      .filter(Boolean)
+      .some((value) =>
+        ["formal education", "school", "university"].includes(String(value).toLowerCase())
+      )
+  );
+}
+
+function defaultCvItems(items: CareerItem[]) {
+  return [...items]
+    .filter((item) => !isFormalEducation(item))
+    .sort((a, b) => a.priority - b.priority || a.title.localeCompare(b.title))
+    .slice(0, 8)
+    .map((item) => itemKey(item));
+}
+
 function countBullets(selectedItems: CareerItem[], draftBullets: DraftBullets) {
   return selectedItems.reduce((total, item) => {
     const key = itemKey(item);
@@ -169,9 +188,7 @@ export function CvBuilderClient({
   items,
   skillGroups
 }: CvBuilderClientProps) {
-  const [selectedKeys, setSelectedKeys] = useState(() =>
-    items.slice(0, 6).map((item) => itemKey(item))
-  );
+  const [selectedKeys, setSelectedKeys] = useState(() => defaultCvItems(items));
   const [selectedSkills, setSelectedSkills] = useState(() =>
     skillGroups.flatMap((group) => group.items).slice(0, 28)
   );
@@ -191,10 +208,7 @@ export function CvBuilderClient({
     () =>
       items.filter(
         (item) =>
-          item.kind === "education" &&
-          [item.category, item.type]
-            .filter(Boolean)
-            .some((value) => ["formal education", "school", "university"].includes(String(value).toLowerCase()))
+          isFormalEducation(item)
       ),
     [items]
   );

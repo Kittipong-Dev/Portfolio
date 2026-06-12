@@ -10,6 +10,7 @@ import {
   Sparkles
 } from "lucide-react";
 import { AwardCard } from "@/components/AwardCard";
+import { ContentExplorer } from "@/components/ContentExplorer";
 import { ExperienceCard } from "@/components/ExperienceCard";
 import { Hero } from "@/components/Hero";
 import { ProjectCard } from "@/components/ProjectCard";
@@ -27,6 +28,7 @@ import {
   softSkills,
   technicalSkills
 } from "@/data/portfolio";
+import { getAllCategories, getCareerProfile } from "@/lib/content";
 
 function Navbar() {
   return (
@@ -150,6 +152,8 @@ function CertificationCard({
 
 export default function Home() {
   const hasPortfolioPdf = existsSync(join(process.cwd(), "public", "portfolio.pdf"));
+  const careerProfile = getCareerProfile();
+  const filters = getAllCategories(careerProfile);
 
   return (
     <main>
@@ -197,7 +201,16 @@ export default function Home() {
       </Section>
 
       <Section
-        id="hackathons"
+        id="experience"
+        eyebrow="Content Database"
+        title="Searchable career source of truth"
+        description="These cards are generated directly from YAML and MDX files in the repository. Add a new project, competition, certificate, or experience file and it appears here automatically."
+      >
+        <ContentExplorer items={careerProfile.allItems} filters={filters} />
+      </Section>
+
+      <Section
+        id="competitions"
         eyebrow="Hackathon & Innovation Experience"
         title="Building, pitching, and learning under real constraints"
         description="These experiences are closest to the AI wellness hackathon environment: fast teamwork, problem framing, product thinking, technical planning, and presenting to judges."

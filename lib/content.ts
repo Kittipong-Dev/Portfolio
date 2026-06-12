@@ -44,6 +44,7 @@ export type CareerItem = {
   title: string;
   organization?: string;
   role?: string;
+  parentKey?: string;
   startDate?: string;
   endDate?: string;
   type?: string;
@@ -289,6 +290,7 @@ function readItems(section: string, kind: ContentKind) {
         title: requiredString(data, "title", filePath),
         organization: optionalString(data, "organization"),
         role: optionalString(data, "role"),
+        parentKey: optionalString(data, "parentKey"),
         startDate: optionalString(data, "startDate"),
         endDate: optionalString(data, "endDate"),
         type: optionalString(data, "type"),

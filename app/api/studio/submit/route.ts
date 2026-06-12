@@ -45,11 +45,14 @@ export async function POST(request: NextRequest) {
 
     const payload = validateStudioPayload(await request.json());
     const files = generateContentFiles(payload);
-    const prefix = payload.action === "cv-version" ? "cv" : "content";
+    const prefix =
+      payload.action === "cv-version" ? "cv" : payload.action === "profile" ? "profile" : "content";
     const title =
       payload.action === "cv-version"
         ? `save cv: ${payload.title}`
-        : `add ${payload.kind}: ${payload.title}`;
+        : payload.action === "profile"
+          ? `update profile: ${payload.profile?.displayName ?? "portfolio"}`
+          : `add ${payload.kind}: ${payload.title}`;
 
     const result = await createContentPullRequest({
       title,

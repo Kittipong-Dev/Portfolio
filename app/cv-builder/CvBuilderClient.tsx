@@ -46,6 +46,27 @@ function countBullets(selectedItems: CareerItem[], draftBullets: DraftBullets) {
   }, 0);
 }
 
+function renderItemsFromSelection(selectedItems: CareerItem[]) {
+  const selectedKeySet = new Set(selectedItems.map(itemKey));
+  const childItemsByParent = selectedItems.reduce<Record<string, CareerItem[]>>(
+    (groups, item) => {
+      if (item.parentKey && selectedKeySet.has(item.parentKey)) {
+        groups[item.parentKey] = [...(groups[item.parentKey] ?? []), item];
+      }
+
+      return groups;
+    },
+    {}
+  );
+
+  return selectedItems
+    .filter((item) => !item.parentKey || !selectedKeySet.has(item.parentKey))
+    .map((item) => ({
+      ...item,
+      children: childItemsByParent[itemKey(item)] ?? []
+    }));
+}
+
 const monthNames = [
   "January",
   "February",
@@ -191,12 +212,12 @@ function autoFontScale(params: {
   selectedSkillCount: number;
 }) {
   const density =
-    params.selectedItemCount * 2.1 + params.bulletTotal + params.selectedSkillCount * 0.22;
+    params.selectedItemCount * 1.65 + params.bulletTotal + params.selectedSkillCount * 0.14;
 
-  if (density <= 21) return 1;
-  if (density <= 25) return 0.96;
-  if (density <= 29) return 0.92;
-  if (density <= 33) return 0.88;
+  if (density <= 28) return 1;
+  if (density <= 34) return 0.96;
+  if (density <= 40) return 0.92;
+  if (density <= 46) return 0.88;
   return 0.84;
 }
 
@@ -206,8 +227,8 @@ function fontScaleForMode(
   bulletTotal: number,
   selectedSkillCount: number
 ) {
-  if (mode === "small") return 0.9;
-  if (mode === "large") return 1.04;
+  if (mode === "small") return 0.92;
+  if (mode === "large") return 1.08;
   if (mode === "normal") return 1;
 
   return autoFontScale({ selectedItemCount, bulletTotal, selectedSkillCount });
@@ -235,6 +256,7 @@ export function CvBuilderClient({
         .filter((item): item is CareerItem => Boolean(item)),
     [items, selectedKeys]
   );
+  const renderItems = useMemo(() => renderItemsFromSelection(selectedItems), [selectedItems]);
   const formalEducationItems = useMemo(
     () =>
       items.filter(
@@ -500,7 +522,7 @@ export function CvBuilderClient({
             template === "compact" ? "text-[12px]" : "text-[13px]"
           }`}
         >
-          <header className="grid grid-cols-[110px_1fr] gap-7">
+          <header className="grid grid-cols-[105px_1fr] gap-6">
             <Image
               src={personalInfo.profileImage}
               alt={`${personalInfo.displayName} profile`}
@@ -508,11 +530,11 @@ export function CvBuilderClient({
               height={118}
               className="h-[118px] w-[92px] object-cover"
             />
-            <div className="pt-[15px]">
+            <div className="pt-[14px]">
               <h2 className="cv-name cv-serif font-extrabold leading-tight text-black">
                 {personalInfo.displayName}
               </h2>
-              <div className="cv-contact cv-serif mt-[22px] grid grid-cols-[1fr_1.05fr] gap-x-[56px] gap-y-[2px] leading-[1.05] text-black">
+              <div className="cv-contact cv-serif mt-[18px] grid grid-cols-[1fr_1.05fr] gap-x-[54px] gap-y-[1px] leading-[1.05] text-black">
                 <p className="grid grid-cols-[90px_1fr]">
                   <strong>Phone:</strong> <span>{personalInfo.phone}</span>
                 </p>
@@ -532,14 +554,14 @@ export function CvBuilderClient({
             </div>
           </header>
 
-          <section className="mt-4">
+          <section className="mt-3">
             <h3 className="cv-section-title">Introduction</h3>
-            <p className="cv-body mt-2">{personalInfo.about}</p>
+            <p className="cv-body mt-1.5">{personalInfo.about}</p>
           </section>
 
-          <section className="mt-3 space-y-3">
+          <section className="mt-2.5 space-y-2">
             <h3 className="cv-section-title">Experience / Projects</h3>
-            {selectedItems.map((item) => {
+            {renderItems.map((item) => {
               const key = itemKey(item);
               const bullets = draftBullets[key] ?? item.bullets;
               return (
@@ -579,7 +601,7 @@ export function CvBuilderClient({
                       </div>
                     </div>
                   </div>
-                  <ul className="cv-body mt-2 list-disc space-y-1 pl-6">
+                  <ul className="cv-body mt-1 list-disc space-y-0 pl-6">
                     {bullets.map((bullet, index) => (
                       <li key={`${key}-${index}`}>
                         <input
@@ -590,14 +612,43 @@ export function CvBuilderClient({
                       </li>
                     ))}
                   </ul>
+                  {item.children.length > 0 ? (
+                    <div className="mt-1 space-y-1 pl-7">
+                      {item.children.map((child) => {
+                        const childKey = itemKey(child);
+                        const childBullets = draftBullets[childKey] ?? child.bullets;
+
+                        return (
+                          <div key={childKey} className="break-inside-avoid">
+                            <h5 className="cv-entry-title cv-serif font-extrabold leading-tight text-black">
+                              {child.title} {child.role ? `— ${child.role}` : ""}
+                            </h5>
+                            <ul className="cv-body mt-1 list-disc space-y-0 pl-6">
+                              {childBullets.map((bullet, index) => (
+                                <li key={`${childKey}-${index}`}>
+                                  <input
+                                    value={bullet}
+                                    onChange={(event) =>
+                                      updateBullet(childKey, index, event.target.value)
+                                    }
+                                    className="w-full bg-transparent outline-none print:border-0"
+                                  />
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
           </section>
 
-          <section className="mt-3">
+          <section className="mt-2.5">
             <h3 className="cv-section-title">Education</h3>
-            <div className="mt-2 space-y-2">
+            <div className="mt-1.5 space-y-1">
               {formalEducationItems.map((item) => (
                 <div key={item.slug} className="flex items-start justify-between gap-4">
                   <div>
@@ -614,9 +665,9 @@ export function CvBuilderClient({
             </div>
           </section>
 
-          <section className="mt-3">
+          <section className="mt-2.5">
             <h3 className="cv-section-title">Skills and Interests</h3>
-            <div className="cv-body mt-2 space-y-0">
+            <div className="cv-body mt-1.5 space-y-0">
               {skillRows(selectedSkills)
                 .filter((row) => row.skills.length > 0)
                 .map((row) => (

@@ -8,7 +8,7 @@ type PullRequestResult = {
 };
 
 function requiredEnv(name: string) {
-  const value = process.env[name];
+  const value = process.env[name]?.trim();
 
   if (!value) {
     throw new Error(`${name} is not configured.`);
@@ -17,17 +17,22 @@ function requiredEnv(name: string) {
   return value;
 }
 
-async function githubFetch<T>(path: string, init: RequestInit = {}) {
+function githubHeaders(initHeaders?: HeadersInit) {
   const token = requiredEnv("GITHUB_TOKEN");
+
+  return {
+    Accept: "application/vnd.github+json",
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    ...initHeaders
+  };
+}
+
+async function githubFetch<T>(path: string, init: RequestInit = {}) {
   const response = await fetch(`https://api.github.com${path}`, {
     ...init,
-    headers: {
-      Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      "X-GitHub-Api-Version": "2022-11-28",
-      ...init.headers
-    }
+    headers: githubHeaders(init.headers)
   });
 
   const data = (await response.json().catch(() => null)) as T | { message?: string } | null;
@@ -44,7 +49,42 @@ async function githubFetch<T>(path: string, init: RequestInit = {}) {
 }
 
 function repo() {
-  return requiredEnv("GITHUB_REPOSITORY");
+  const repository = requiredEnv("GITHUB_REPOSITORY");
+
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) {
+    throw new Error("GITHUB_REPOSITORY must use owner/repo format, for example Kittipong-Dev/Portfolio.");
+  }
+
+  if (repository.split("/").some((part) => part.endsWith("."))) {
+    throw new Error("GITHUB_REPOSITORY must not include trailing dots.");
+  }
+
+  return repository;
+}
+
+function encodeGitHubPath(path: string) {
+  return path.split("/").map(encodeURIComponent).join("/");
+}
+
+async function existingContentSha(repository: string, filePath: string, branch: string) {
+  const response = await fetch(
+    `https://api.github.com/repos/${repository}/contents/${encodeGitHubPath(filePath)}?ref=${encodeURIComponent(branch)}`,
+    {
+      headers: githubHeaders()
+    }
+  );
+
+  if (response.status === 404) {
+    return undefined;
+  }
+
+  const data = (await response.json().catch(() => null)) as { message?: string; sha?: string } | null;
+
+  if (!response.ok) {
+    throw new Error(data?.message ?? `GitHub content lookup failed: ${response.status}`);
+  }
+
+  return data?.sha;
 }
 
 export async function createContentPullRequest(params: {
@@ -54,22 +94,29 @@ export async function createContentPullRequest(params: {
   branchPrefix: string;
 }) {
   const repository = repo();
-  const baseBranch = process.env.GITHUB_BASE_BRANCH ?? "main";
+  const baseBranch = process.env.GITHUB_BASE_BRANCH?.trim() || "main";
   const branch = `${params.branchPrefix}/${slugify(params.title)}-${Date.now()}`;
 
   const baseRef = await githubFetch<{ object: { sha: string } }>(
     `/repos/${repository}/git/ref/heads/${baseBranch}`
   );
+  const baseSha = baseRef.object?.sha;
+
+  if (!baseSha) {
+    throw new Error(`Could not resolve SHA for base branch "${baseBranch}". Check GITHUB_BASE_BRANCH and repository access.`);
+  }
 
   await githubFetch(`/repos/${repository}/git/refs`, {
     method: "POST",
     body: JSON.stringify({
       ref: `refs/heads/${branch}`,
-      sha: baseRef.object.sha
+      sha: baseSha
     })
   });
 
   for (const file of params.files) {
+    const currentSha = await existingContentSha(repository, file.path, branch);
+
     await githubFetch(`/repos/${repository}/contents/${file.path}`, {
       method: "PUT",
       body: JSON.stringify({
@@ -78,7 +125,8 @@ export async function createContentPullRequest(params: {
           file.encoding === "base64"
             ? file.content
             : Buffer.from(file.content, "utf8").toString("base64"),
-        branch
+        branch,
+        ...(currentSha ? { sha: currentSha } : {})
       })
     });
   }

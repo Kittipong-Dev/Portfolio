@@ -176,7 +176,6 @@ function normalizeProfile(value: unknown) {
     school: requiredString(record.school, "profile.school"),
     location: requiredString(record.location, "profile.location"),
     email: requiredString(record.email, "profile.email"),
-    phone: optionalProfileString(record.phone),
     github: requiredString(record.github, "profile.github"),
     linkedIn: optionalProfileString(record.linkedIn),
     huggingFace: optionalProfileString(record.huggingFace),
@@ -293,7 +292,6 @@ title: ${yamlScalar(profile.title)}
 school: ${yamlScalar(profile.school)}
 location: ${yamlScalar(profile.location)}
 email: ${yamlScalar(profile.email)}
-phone: ${yamlScalar(profile.phone ?? "")}
 github: ${yamlScalar(profile.github)}
 linkedIn: ${yamlScalar(profile.linkedIn ?? "")}
 huggingFace: ${yamlScalar(profile.huggingFace ?? "")}

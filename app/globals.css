@@ -40,6 +40,7 @@ a {
 }
 
 .cv-print-page {
+  --cv-scale: 1;
   width: 210mm;
   height: 297mm;
   overflow: hidden;
@@ -51,11 +52,31 @@ a {
   font-family: "Times New Roman", Times, serif;
 }
 
+.cv-name {
+  font-size: calc(34px * var(--cv-scale));
+}
+
+.cv-contact {
+  font-size: calc(17px * var(--cv-scale));
+}
+
+.cv-entry-title {
+  font-size: calc(17px * var(--cv-scale));
+}
+
+.cv-entry-role {
+  font-size: calc(15px * var(--cv-scale));
+}
+
+.cv-date {
+  font-size: calc(16px * var(--cv-scale));
+}
+
 .cv-section-title {
   border-bottom: 2px solid #111;
   padding-bottom: 5px;
   font-family: Arial, Helvetica, sans-serif;
-  font-size: 24px;
+  font-size: calc(24px * var(--cv-scale));
   font-weight: 900;
   line-height: 1;
   color: #000;
@@ -63,7 +84,7 @@ a {
 
 .cv-body {
   font-family: "Times New Roman", Times, serif;
-  font-size: 17px;
+  font-size: calc(17px * var(--cv-scale));
   line-height: 1.32;
   color: #000;
 }

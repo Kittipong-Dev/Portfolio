@@ -26,7 +26,10 @@ export type PersonalInfo = {
   school: string;
   location: string;
   email: string;
+  phone?: string;
   github: string;
+  linkedIn?: string;
+  huggingFace?: string;
   discord: string;
   instagram: string;
   profileImage: string;
@@ -317,7 +320,10 @@ function readProfile() {
     school: requiredString(data, "school", filePath),
     location: requiredString(data, "location", filePath),
     email: requiredString(data, "email", filePath),
+    phone: optionalString(data, "phone"),
     github: requiredString(data, "github", filePath),
+    linkedIn: optionalString(data, "linkedIn"),
+    huggingFace: optionalString(data, "huggingFace"),
     discord: requiredString(data, "discord", filePath),
     instagram: requiredString(data, "instagram", filePath),
     profileImage: requiredString(data, "profileImage", filePath),

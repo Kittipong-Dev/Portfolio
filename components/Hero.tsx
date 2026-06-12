@@ -44,7 +44,7 @@ export function Hero({ hasPortfolioPdf }: HeroProps) {
 
         <div className="mt-8 flex flex-wrap gap-3">
           <a
-            href="#hackathons"
+            href="#experience"
             className="inline-flex items-center gap-2 rounded-md bg-accent px-5 py-3 text-sm font-bold text-white shadow-card transition hover:-translate-y-0.5 hover:bg-indigo-900"
           >
             View Experience

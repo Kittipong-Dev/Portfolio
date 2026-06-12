@@ -535,9 +535,6 @@ export function CvBuilderClient({
                 {personalInfo.displayName}
               </h2>
               <div className="cv-contact cv-serif mt-[18px] grid grid-cols-[1fr_1.05fr] gap-x-[54px] gap-y-[1px] leading-[1.05] text-black">
-                <p className="grid grid-cols-[90px_1fr]">
-                  <strong>Phone:</strong> <span>{personalInfo.phone}</span>
-                </p>
                 <p className="grid grid-cols-[122px_1fr]">
                   <strong>Email:</strong> <span>{personalInfo.email}</span>
                 </p>

@@ -244,7 +244,6 @@ export function StudioClient({ personalInfo }: StudioClientProps) {
               ["displayName", "Display name"],
               ["title", "Title"],
               ["email", "Email"],
-              ["phone", "Phone"],
               ["github", "GitHub username"],
               ["linkedIn", "LinkedIn"],
               ["huggingFace", "Hugging Face"],

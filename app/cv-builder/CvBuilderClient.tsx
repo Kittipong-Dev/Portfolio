@@ -18,6 +18,25 @@ function itemKey(item: CareerItem) {
   return `${item.kind}:${item.slug}`;
 }
 
+function isFormalEducation(item: CareerItem) {
+  return (
+    item.kind === "education" &&
+    [item.category, item.type]
+      .filter(Boolean)
+      .some((value) =>
+        ["formal education", "school", "university"].includes(String(value).toLowerCase())
+      )
+  );
+}
+
+function defaultCvItems(items: CareerItem[]) {
+  return [...items]
+    .filter((item) => !isFormalEducation(item))
+    .sort((a, b) => a.priority - b.priority || a.title.localeCompare(b.title))
+    .slice(0, 8)
+    .map((item) => itemKey(item));
+}
+
 function countBullets(selectedItems: CareerItem[], draftBullets: DraftBullets) {
   return selectedItems.reduce((total, item) => {
     const key = itemKey(item);
@@ -25,9 +44,143 @@ function countBullets(selectedItems: CareerItem[], draftBullets: DraftBullets) {
   }, 0);
 }
 
+const monthNames = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December"
+];
+
+const shortMonthNames = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec"
+];
+
+function formatDate(value: string, variant: "short" | "long") {
+  if (/^\d{4}$/.test(value)) return value;
+  if (value.toLowerCase() === "present") return "Present";
+
+  const match = /^(\d{4})-(\d{2})/.exec(value);
+  if (!match) return value;
+
+  const monthIndex = Number(match[2]) - 1;
+  const month = variant === "short" ? shortMonthNames[monthIndex] : monthNames[monthIndex];
+  return `${month} ${match[1]}`;
+}
+
 function formatDateRange(item: CareerItem) {
-  if (item.startDate && item.endDate) return `${item.startDate} - ${item.endDate}`;
-  return item.endDate ?? item.startDate ?? "";
+  if (item.startDate && item.endDate) {
+    if (/^\d{4}$/.test(item.startDate) && /^\d{4}$/.test(item.endDate)) {
+      return `${item.startDate}-${item.endDate}`;
+    }
+
+    return `${formatDate(item.startDate, "short")} - ${formatDate(item.endDate, "long")}`;
+  }
+
+  if (item.endDate) return formatDate(item.endDate, "long");
+  if (item.startDate) return formatDate(item.startDate, "long");
+  return "";
+}
+
+function isMatchingSkill(skill: string, patterns: string[]) {
+  const normalizedSkill = skill.toLowerCase();
+  return patterns.some((pattern) => normalizedSkill.includes(pattern.toLowerCase()));
+}
+
+function skillRows(selectedSkills: string[]) {
+  const rows = [
+    {
+      label: "AI / ML",
+      patterns: [
+        "LLM",
+        "RAG",
+        "Agentic",
+        "NLP",
+        "Fine-tuning",
+        "Evaluation",
+        "Computer Vision",
+        "Time Series",
+        "Signal Processing",
+        "Machine Learning",
+        "Deep Learning",
+        "CNN"
+      ]
+    },
+    {
+      label: "Tools",
+      patterns: [
+        "Python",
+        "PyTorch",
+        "Hugging Face",
+        "SQL",
+        "Docker",
+        "Linux",
+        "Git",
+        "GitHub",
+        "EasyOCR",
+        "ONNX",
+        "TensorRT",
+        "Postman"
+      ]
+    },
+    {
+      label: "Engineering",
+      patterns: [
+        "AWS",
+        "Pipeline",
+        "API",
+        "Data Pipeline",
+        "Deployment",
+        "MLOps",
+        "Web Development",
+        "Cloud",
+        "Database",
+        "Backend"
+      ]
+    },
+    {
+      label: "Soft Skills",
+      patterns: [
+        "Team",
+        "Leadership",
+        "Presentation",
+        "Communication",
+        "Pitching",
+        "Problem Solving"
+      ]
+    }
+  ];
+
+  const assigned = new Set<string>();
+
+  return rows.map((row) => {
+    const skills = selectedSkills.filter((skill) => {
+      const matches =
+        skill !== row.label && !assigned.has(skill) && isMatchingSkill(skill, row.patterns);
+      if (matches) assigned.add(skill);
+      return matches;
+    });
+
+    return { label: row.label, skills };
+  });
 }
 
 export function CvBuilderClient({
@@ -35,11 +188,9 @@ export function CvBuilderClient({
   items,
   skillGroups
 }: CvBuilderClientProps) {
-  const [selectedKeys, setSelectedKeys] = useState(() =>
-    items.slice(0, 6).map((item) => itemKey(item))
-  );
+  const [selectedKeys, setSelectedKeys] = useState(() => defaultCvItems(items));
   const [selectedSkills, setSelectedSkills] = useState(() =>
-    skillGroups.flatMap((group) => group.items).slice(0, 12)
+    skillGroups.flatMap((group) => group.items).slice(0, 28)
   );
   const [draftBullets, setDraftBullets] = useState<DraftBullets>({});
   const [template, setTemplate] = useState("pdf-reference");
@@ -57,10 +208,7 @@ export function CvBuilderClient({
     () =>
       items.filter(
         (item) =>
-          item.kind === "education" &&
-          [item.category, item.type]
-            .filter(Boolean)
-            .some((value) => ["formal education", "school", "university"].includes(String(value).toLowerCase()))
+          isFormalEducation(item)
       ),
     [items]
   );
@@ -303,28 +451,25 @@ export function CvBuilderClient({
               height={118}
               className="h-[118px] w-[92px] object-cover"
             />
-            <div>
-              <h2 className="font-serif text-[34px] font-extrabold leading-tight text-black">
+            <div className="pt-[15px]">
+              <h2 className="cv-serif text-[34px] font-extrabold leading-tight text-black">
                 {personalInfo.displayName}
               </h2>
-              <div className="mt-5 grid gap-x-10 gap-y-1 font-serif text-[17px] leading-tight text-black sm:grid-cols-2">
-                <p>
-                  <strong>Phone:</strong> <span className="ml-8">{personalInfo.phone}</span>
+              <div className="cv-serif mt-[22px] grid grid-cols-[1fr_1.05fr] gap-x-[56px] gap-y-[2px] text-[17px] leading-[1.05] text-black">
+                <p className="grid grid-cols-[90px_1fr]">
+                  <strong>Phone:</strong> <span>{personalInfo.phone}</span>
                 </p>
-                <p>
-                  <strong>Email:</strong> <span className="ml-8">{personalInfo.email}</span>
+                <p className="grid grid-cols-[122px_1fr]">
+                  <strong>Email:</strong> <span>{personalInfo.email}</span>
                 </p>
-                <p>
-                  <strong>Github:</strong>{" "}
-                  <span className="ml-7">github.com/{personalInfo.github}</span>
+                <p className="grid grid-cols-[90px_1fr]">
+                  <strong>Github:</strong> <span>github.com/{personalInfo.github}</span>
                 </p>
-                <p>
-                  <strong>Hugging Face:</strong>{" "}
-                  <span className="ml-3">{personalInfo.huggingFace}</span>
+                <p className="grid grid-cols-[122px_1fr]">
+                  <strong>Hugging Face:</strong> <span>{personalInfo.huggingFace}</span>
                 </p>
-                <p className="sm:col-span-2">
-                  <strong>LinkedIn:</strong>{" "}
-                  <span className="ml-5">{personalInfo.linkedIn}</span>
+                <p className="grid grid-cols-[90px_1fr]">
+                  <strong>LinkedIn:</strong> <span>{personalInfo.linkedIn}</span>
                 </p>
               </div>
             </div>
@@ -344,17 +489,17 @@ export function CvBuilderClient({
                 <div key={key} className="break-inside-avoid">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <h4 className="font-serif text-[17px] font-extrabold leading-tight text-black">
+                      <h4 className="cv-serif text-[17px] font-extrabold leading-tight text-black">
                         {item.title}
                       </h4>
                       {item.role ? (
-                        <p className="font-serif text-[15px] font-bold leading-tight text-black">
+                        <p className="cv-serif text-[15px] font-bold leading-tight text-black">
                           {item.role}
                         </p>
                       ) : null}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-serif text-[16px] font-extrabold text-black">
+                    <div className="flex min-w-[155px] items-start justify-end gap-2">
+                      <p className="cv-serif whitespace-nowrap text-right text-[16px] font-extrabold leading-tight text-black">
                         {formatDateRange(item)}
                       </p>
                       <div className="flex gap-1 print:hidden">
@@ -399,12 +544,12 @@ export function CvBuilderClient({
               {formalEducationItems.map((item) => (
                 <div key={item.slug} className="flex items-start justify-between gap-4">
                   <div>
-                    <h4 className="font-serif text-[17px] font-extrabold leading-tight text-black">
+                    <h4 className="cv-serif text-[17px] font-extrabold leading-tight text-black">
                       {item.title}
                     </h4>
                     <p className="cv-body">{item.role ?? item.summary}</p>
                   </div>
-                  <p className="font-serif text-[16px] font-extrabold text-black">
+                  <p className="cv-serif min-w-[155px] whitespace-nowrap text-right text-[16px] font-extrabold leading-tight text-black">
                     {formatDateRange(item) || "Present"}
                   </p>
                 </div>
@@ -414,9 +559,15 @@ export function CvBuilderClient({
 
           <section className="mt-3">
             <h3 className="cv-section-title">Skills and Interests</h3>
-            <p className="cv-body mt-2">
-              <strong>Selected Skills:</strong> {selectedSkills.join(", ")}
-            </p>
+            <div className="cv-body mt-2 space-y-0">
+              {skillRows(selectedSkills)
+                .filter((row) => row.skills.length > 0)
+                .map((row) => (
+                  <p key={row.label}>
+                    <strong>{row.label}:</strong> {row.skills.join(", ")}
+                  </p>
+                ))}
+            </div>
           </section>
         </article>
       </main>

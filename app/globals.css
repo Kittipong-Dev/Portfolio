@@ -41,23 +41,30 @@ a {
 
 .cv-print-page {
   width: 210mm;
-  min-height: 297mm;
-  padding: 13mm 12mm;
+  height: 297mm;
+  overflow: hidden;
+  padding: 13mm 12mm 10mm;
+  font-family: "Times New Roman", Times, serif;
+}
+
+.cv-serif {
+  font-family: "Times New Roman", Times, serif;
 }
 
 .cv-section-title {
   border-bottom: 2px solid #111;
-  padding-bottom: 4px;
-  font-size: 21px;
+  padding-bottom: 5px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 24px;
   font-weight: 900;
-  line-height: 1.1;
+  line-height: 1;
   color: #000;
 }
 
 .cv-body {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 16px;
-  line-height: 1.38;
+  font-family: "Times New Roman", Times, serif;
+  font-size: 17px;
+  line-height: 1.32;
   color: #000;
 }
 
@@ -75,7 +82,7 @@ a {
   .cv-print-page {
     box-shadow: none;
     margin: 0;
-    min-height: 297mm;
+    height: 297mm;
     width: 210mm;
   }
 }

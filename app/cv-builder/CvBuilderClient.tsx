@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, Download, Save } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 import type { CareerItem, PersonalInfo, SkillGroup } from "@/lib/content";
 
 type CvBuilderClientProps = {
@@ -13,6 +14,7 @@ type CvBuilderClientProps = {
 };
 
 type DraftBullets = Record<string, string[]>;
+type FontSizeMode = "auto" | "small" | "normal" | "large";
 
 function itemKey(item: CareerItem) {
   return `${item.kind}:${item.slug}`;
@@ -183,6 +185,34 @@ function skillRows(selectedSkills: string[]) {
   });
 }
 
+function autoFontScale(params: {
+  selectedItemCount: number;
+  bulletTotal: number;
+  selectedSkillCount: number;
+}) {
+  const density =
+    params.selectedItemCount * 2.1 + params.bulletTotal + params.selectedSkillCount * 0.22;
+
+  if (density <= 21) return 1;
+  if (density <= 25) return 0.96;
+  if (density <= 29) return 0.92;
+  if (density <= 33) return 0.88;
+  return 0.84;
+}
+
+function fontScaleForMode(
+  mode: FontSizeMode,
+  selectedItemCount: number,
+  bulletTotal: number,
+  selectedSkillCount: number
+) {
+  if (mode === "small") return 0.9;
+  if (mode === "large") return 1.04;
+  if (mode === "normal") return 1;
+
+  return autoFontScale({ selectedItemCount, bulletTotal, selectedSkillCount });
+}
+
 export function CvBuilderClient({
   personalInfo,
   items,
@@ -194,6 +224,7 @@ export function CvBuilderClient({
   );
   const [draftBullets, setDraftBullets] = useState<DraftBullets>({});
   const [template, setTemplate] = useState("pdf-reference");
+  const [fontSizeMode, setFontSizeMode] = useState<FontSizeMode>("auto");
   const [onePageMode, setOnePageMode] = useState(true);
   const [targetKeywords, setTargetKeywords] = useState("AI, backend, API, data, cloud");
 
@@ -214,6 +245,13 @@ export function CvBuilderClient({
   );
 
   const bulletTotal = countBullets(selectedItems, draftBullets);
+  const fontScale = fontScaleForMode(
+    fontSizeMode,
+    selectedItems.length,
+    bulletTotal,
+    selectedSkills.length
+  );
+  const cvStyle = { "--cv-scale": fontScale } as CSSProperties;
   const missingKeywords = targetKeywords
     .split(",")
     .map((keyword) => keyword.trim())
@@ -288,6 +326,7 @@ export function CvBuilderClient({
         company,
         role,
         template,
+        fontSizeMode,
         onePageMode,
         selectedKeys,
         selectedSkills,
@@ -341,6 +380,23 @@ export function CvBuilderClient({
               onChange={(event) => setOnePageMode(event.target.checked)}
             />
             One-page mode
+          </label>
+
+          <label className="block">
+            <span className="text-sm font-bold text-ink">PDF font size</span>
+            <select
+              value={fontSizeMode}
+              onChange={(event) => setFontSizeMode(event.target.value as FontSizeMode)}
+              className="mt-2 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+            >
+              <option value="auto">Auto fit A4</option>
+              <option value="small">Small</option>
+              <option value="normal">Normal</option>
+              <option value="large">Large</option>
+            </select>
+            <span className="mt-1 block text-xs font-semibold text-slate-500">
+              Current scale: {Math.round(fontScale * 100)}%
+            </span>
           </label>
 
           <label className="block">
@@ -439,6 +495,7 @@ export function CvBuilderClient({
         </div>
 
         <article
+          style={cvStyle}
           className={`cv-print-page mx-auto bg-white shadow-card print:shadow-none ${
             template === "compact" ? "text-[12px]" : "text-[13px]"
           }`}
@@ -452,10 +509,10 @@ export function CvBuilderClient({
               className="h-[118px] w-[92px] object-cover"
             />
             <div className="pt-[15px]">
-              <h2 className="cv-serif text-[34px] font-extrabold leading-tight text-black">
+              <h2 className="cv-name cv-serif font-extrabold leading-tight text-black">
                 {personalInfo.displayName}
               </h2>
-              <div className="cv-serif mt-[22px] grid grid-cols-[1fr_1.05fr] gap-x-[56px] gap-y-[2px] text-[17px] leading-[1.05] text-black">
+              <div className="cv-contact cv-serif mt-[22px] grid grid-cols-[1fr_1.05fr] gap-x-[56px] gap-y-[2px] leading-[1.05] text-black">
                 <p className="grid grid-cols-[90px_1fr]">
                   <strong>Phone:</strong> <span>{personalInfo.phone}</span>
                 </p>
@@ -489,17 +546,17 @@ export function CvBuilderClient({
                 <div key={key} className="break-inside-avoid">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <h4 className="cv-serif text-[17px] font-extrabold leading-tight text-black">
+                      <h4 className="cv-entry-title cv-serif font-extrabold leading-tight text-black">
                         {item.title}
                       </h4>
                       {item.role ? (
-                        <p className="cv-serif text-[15px] font-bold leading-tight text-black">
+                        <p className="cv-entry-role cv-serif font-bold leading-tight text-black">
                           {item.role}
                         </p>
                       ) : null}
                     </div>
                     <div className="flex min-w-[155px] items-start justify-end gap-2">
-                      <p className="cv-serif whitespace-nowrap text-right text-[16px] font-extrabold leading-tight text-black">
+                      <p className="cv-date cv-serif whitespace-nowrap text-right font-extrabold leading-tight text-black">
                         {formatDateRange(item)}
                       </p>
                       <div className="flex gap-1 print:hidden">
@@ -544,12 +601,12 @@ export function CvBuilderClient({
               {formalEducationItems.map((item) => (
                 <div key={item.slug} className="flex items-start justify-between gap-4">
                   <div>
-                    <h4 className="cv-serif text-[17px] font-extrabold leading-tight text-black">
+                    <h4 className="cv-entry-title cv-serif font-extrabold leading-tight text-black">
                       {item.title}
                     </h4>
                     <p className="cv-body">{item.role ?? item.summary}</p>
                   </div>
-                  <p className="cv-serif min-w-[155px] whitespace-nowrap text-right text-[16px] font-extrabold leading-tight text-black">
+                  <p className="cv-date cv-serif min-w-[155px] whitespace-nowrap text-right font-extrabold leading-tight text-black">
                     {formatDateRange(item) || "Present"}
                   </p>
                 </div>

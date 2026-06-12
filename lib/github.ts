@@ -66,7 +66,17 @@ function encodeGitHubPath(path: string) {
   return path.split("/").map(encodeURIComponent).join("/");
 }
 
-async function existingContentSha(repository: string, filePath: string, branch: string) {
+function normalizeBase64(value: string) {
+  return value.replace(/\s+/g, "");
+}
+
+function fileContentBase64(file: GeneratedFile) {
+  return file.encoding === "base64"
+    ? normalizeBase64(file.content)
+    : Buffer.from(file.content, "utf8").toString("base64");
+}
+
+async function existingContent(repository: string, filePath: string, branch: string) {
   const response = await fetch(
     `https://api.github.com/repos/${repository}/contents/${encodeGitHubPath(filePath)}?ref=${encodeURIComponent(branch)}`,
     {
@@ -78,13 +88,22 @@ async function existingContentSha(repository: string, filePath: string, branch: 
     return undefined;
   }
 
-  const data = (await response.json().catch(() => null)) as { message?: string; sha?: string } | null;
+  const data = (await response.json().catch(() => null)) as
+    | { content?: string; message?: string; sha?: string; type?: string }
+    | null;
 
   if (!response.ok) {
     throw new Error(data?.message ?? `GitHub content lookup failed: ${response.status}`);
   }
 
-  return data?.sha;
+  if (data?.type !== "file") {
+    throw new Error(`${filePath} exists on GitHub but is not a file.`);
+  }
+
+  return {
+    content: normalizeBase64(data?.content ?? ""),
+    sha: data?.sha
+  };
 }
 
 export async function createContentPullRequest(params: {
@@ -114,21 +133,30 @@ export async function createContentPullRequest(params: {
     })
   });
 
+  const changedFiles: GeneratedFile[] = [];
+
   for (const file of params.files) {
-    const currentSha = await existingContentSha(repository, file.path, branch);
+    const current = await existingContent(repository, file.path, branch);
+    const content = fileContentBase64(file);
+
+    if (current?.content === content) {
+      continue;
+    }
 
     await githubFetch(`/repos/${repository}/contents/${file.path}`, {
       method: "PUT",
       body: JSON.stringify({
         message: params.title,
-        content:
-          file.encoding === "base64"
-            ? file.content
-            : Buffer.from(file.content, "utf8").toString("base64"),
+        content,
         branch,
-        ...(currentSha ? { sha: currentSha } : {})
+        ...(current?.sha ? { sha: current.sha } : {})
       })
     });
+    changedFiles.push(file);
+  }
+
+  if (changedFiles.length === 0) {
+    throw new Error("No file changes detected. Update at least one field or upload a new file before creating a pull request.");
   }
 
   const pullRequest = await githubFetch<{ html_url: string }>(`/repos/${repository}/pulls`, {
@@ -144,6 +172,6 @@ export async function createContentPullRequest(params: {
   return {
     branch,
     pullRequestUrl: pullRequest.html_url,
-    files: params.files.map((file) => file.path)
+    files: changedFiles.map((file) => file.path)
   } satisfies PullRequestResult;
 }
